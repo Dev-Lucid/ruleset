@@ -2,8 +2,10 @@
 namespace Lucid\Component\Ruleset;
 use Lucid\Lucid;
 
-class Ruleset
+abstract class Ruleset implements \Lucid\Component\Factory\FactoryObjectInterface
 {
+    use \Lucid\Component\Factory\FactoryObjectTrait;
+
     public $rules = [];
     public $name  = '';
     public $originalFile = '';
@@ -11,15 +13,21 @@ class Ruleset
 
     public static $handlers = [];
 
-    public function __construct (string $originalFile, int $originalLine, array $rules)
+    public function __construct ()
     {
-        $this->originalFile = $originalFile;
-        $this->originalLine = $originalLine;
-        $this->rules = $rules;
+        $caller =  debug_backtrace()[0];
+        $this->originalFile = $caller['file'];
+        $this->originalLine = $caller['line'];
+        $this->setupRules();
+    }
 
-        for ($i=0; $i<count($this->rules); $i++) {
-            $this->rules[$i]['ruleset'] = $this;
-        }
+    abstract function setupRules();
+
+    public function addRule($rule)
+    {
+        $rule['ruleset'] = $this;
+        $this->rules[] = $rule;
+        return $this;
     }
 
     public static function checkForKeys(array $rule, ...$requiredKeys) {
@@ -60,7 +68,7 @@ class Ruleset
         foreach ($this->rules as $key=>$value) {
             unset($this->rules[$key]['ruleset']);
             if (isset($this->rules[$key]['message']) === false) {
-                $this->rules[$key]['message'] = _('validation:'.$this->rules[$key]['type'], $this->rules[$key]);
+                $this->rules[$key]['message'] = lucid::i18n()->translate('validation:'.$this->rules[$key]['type'], $this->rules[$key]);
             }
         }
         $js = 'lucid.ruleset.add(\''.$formName.'\', '.json_encode($this->rules).');';
