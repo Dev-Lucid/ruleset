@@ -18,10 +18,7 @@ abstract class Ruleset implements \Lucid\Component\Factory\FactoryObjectInterfac
         $caller =  debug_backtrace()[0];
         $this->originalFile = $caller['file'];
         $this->originalLine = $caller['line'];
-        $this->setupRules();
     }
-
-    abstract function setupRules();
 
     public function addRule($rule)
     {
@@ -75,12 +72,12 @@ abstract class Ruleset implements \Lucid\Component\Factory\FactoryObjectInterfac
         lucid::response()->javascript($js);
     }
 
-    public function hasErrors ($data = null)
+    public function hasErrors ($dataToCheck = null)
     {
-        if (is_null($data)) {
+        if (is_null($dataToCheck)) {
             $data = lucid::request();
-        } elseif (is_array($data) === true) {
-            $data = new \Lucid\Component\Store\Store($data);
+        } elseif (is_array($dataToCheck) === true) {
+            $data = new \Lucid\Component\Store\Store($dataToCheck);
         }
 
         $errors = [];
@@ -94,9 +91,9 @@ abstract class Ruleset implements \Lucid\Component\Factory\FactoryObjectInterfac
                     }
 
                     if (isset($rule['message']) === true) {
-                        $message = _($rule['message'], $rule);
+                        $message = \Lucid\lucid::i18n()->translate($rule['message'], $rule);
                     } else {
-                        $message = _('validation:'.$rule['type'],$rule);
+                        $message = \Lucid\lucid::i18n()->translate('validation:'.$rule['type'],$rule);
                     }
                     $errors[$rule['label']][] = $message;
                 }
@@ -105,7 +102,7 @@ abstract class Ruleset implements \Lucid\Component\Factory\FactoryObjectInterfac
 
         if (count($errors) > 0) {
             lucid::logger()->debug('Validation failure: ');
-            lucid::logger()->debug($errors);
+            lucid::logger()->debug(print_r($errors, true));
             return $errors;
         }
         return false;
@@ -117,14 +114,13 @@ abstract class Ruleset implements \Lucid\Component\Factory\FactoryObjectInterfac
             lucid::logger()->debug('no errors found');
             return;
         }
-        lucid::logger()->debug('attempting to build error response');
         lucid::response()->javascript('lucid.ruleset.showErrors(\''.lucid::request()->string('__form_name').'\','.json_encode($errors).');');
         lucid::response()->send('validationError');
     }
 
     public function checkParameters(array $passedParameters)
     {
-        # this function determines what the names of the parameters sent to the function calling this should have been
+        # This function determines what the names of the parameters sent to the function calling this should have been
         # named, then rebuilds the numerically indexed array of parameters into an associative array,
         # and then calls sendErrors.
         $caller =  debug_backtrace()[1];
@@ -133,8 +129,9 @@ abstract class Ruleset implements \Lucid\Component\Factory\FactoryObjectInterfac
 
         $finalParameters = [];
         for ($i=0; $i<count($functionParameters); $i++) {
-            $finalParameters[$functionParameters[$i]->name] = (isset($passedParameters[$i]))?$passedParameters[$i]:null;
+            $finalParameters[$functionParameters[$i]->name] = $passedParameters[$i] ?? null;
         }
+
         return $this->sendErrors($finalParameters);
     }
 
